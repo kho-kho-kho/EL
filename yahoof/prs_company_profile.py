@@ -13,6 +13,9 @@ from selenium.webdriver.chrome.options import Options
 
 INPUT = 'AAPL,'
 
+WAIT_MIN = 5
+WAIT_MAX = 9
+
 URL_BASE = 'https://finance.yahoo.com/quote/'
 
 def main():
@@ -31,19 +34,31 @@ def main():
         driver.get(url)
         src = driver.page_source
 
-        match = re.search(r'"summaryProfile"\s*:\s*{(.*?)}', src, re.DOTALL)
-        if match and match.group(1):
-            txt = match.group(1)
-            err = re.search(r'"err"\s*:\s*{', txt, re.S)
-            if err:
-                print(f'{ticker}|ERR')
-                continue
-            emp = re.search(r'"fullTimeEmployees"\s*:\s*(\d*)', txt, re.S).group(1)
-            ind = re.search(r'"industry"\s*:\s*"(.*?)"', txt, re.S).group(1)
-            sec = re.search(r'"sector"\s*:\s*"(.*?)"', txt, re.S).group(1)
-            print(f'{ticker}|{sec}|{ind}|{emp}')
+        res = 'OK'
+        cap = bet = per = div = emp = ind = sec = ''
 
-        time.sleep(random.randint(5, 9))
+        match = re.search(r'<table.*?>(.*?)</table>.*<table.*?>(.*?)</table>', src, re.S)
+        if match and match.group(1) and match.group(2):
+            tb2 = match.group(2)
+
+            cap = re.search(r'<span.*?>Market Cap</span>.*?<span.*?>(.*?)</span>', tb2, re.S).group(1)
+            bet = re.search(r'<span.*?>Beta.*?</span>.*?<span.*?>(.*?)</span>', tb2, re.S).group(1)
+            per = re.search(r'<span.*?>PE Ratio.*?</span>.*?<span.*?>(.*?)</span>', tb2, re.S).group(1)
+            div = re.search(r'<span.*?>Forward Dividend.*?</span>.*?<td.*?>(.*?)</td>', tb2, re.S).group(1)
+
+        match = re.search(r'"summaryProfile"\s*:\s*{(.*?)}', src, re.S)
+        if match and match.group(1):
+            pro = match.group(1)
+
+            if re.search(r'"err"\s*:\s*{', pro, re.S):
+                res = 'ERR'
+            else:
+                emp = re.search(r'"fullTimeEmployees"\s*:\s*(\d*)', pro, re.S).group(1)
+                ind = re.search(r'"industry"\s*:\s*"(.*?)"', pro, re.S).group(1)
+                sec = re.search(r'"sector"\s*:\s*"(.*?)"', pro, re.S).group(1)
+
+        print(f'{ticker}|{res}|{sec}|{ind}|{emp}|{cap}|{bet}|{per}|{div}')
+        time.sleep(random.randint(WAIT_MIN, WAIT_MAX))
 
     driver.quit()
 
