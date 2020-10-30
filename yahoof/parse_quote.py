@@ -5,11 +5,12 @@ Created on Fri Sep  4 15:39:16 2020
 @author: KHO
 """
 
-import pandas as pd
 import random
 import re
 import time
 from pathlib import Path
+
+import pandas as pd
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 
@@ -23,7 +24,7 @@ URL_BASE = 'https://finance.yahoo.com/quote/'
 YNA = 'N/A' # for matching missing values
 
 def _parse_stats(src, out):
-    """ xxx """
+    """Regex routines to parse out statistics from summary section"""
 
     cap = bet = per = div = yld = -1.0
     mc_units = {'B': 1, 'M': 0.001, 'T': 1000, }
@@ -61,7 +62,7 @@ def _parse_stats(src, out):
     out['Div.yld%'] = yld
 
 def _parse_profile(src, out):
-    """ xxx """
+    """Regex routines to parse out fields from company profile section"""
 
     emp = -1.0
     ind = sec = ''
@@ -71,16 +72,27 @@ def _parse_profile(src, out):
         pro = match.group(1)
 
         if not re.search(r'"err"\s*:\s*{', pro, re.S):
-            emp = re.search(r'"fullTimeEmployees"\s*:\s*(\d*)', pro, re.S).group(1)
-            ind = re.search(r'"industry"\s*:\s*"(.*?)"', pro, re.S).group(1)
-            sec = re.search(r'"sector"\s*:\s*"(.*?)"', pro, re.S).group(1)
+            mat_emp = re.search(r'"fullTimeEmployees"\s*:\s*(\d*)', pro, re.S)
+            if mat_emp and mat_emp.group(1):
+                emp = mat_emp.group(1)
+
+            mat_ind = re.search(r'"industry"\s*:\s*"(.*?)"', pro, re.S)
+            if mat_ind and mat_ind.group(1):
+                ind = mat_ind.group(1)
+
+            mat_sec = re.search(r'"sector"\s*:\s*"(.*?)"', pro, re.S)
+            if mat_sec and mat_sec.group(1):
+                sec = mat_sec.group(1)
 
     out['Emp(1k)'] = float(emp) / 1000
     out['Sector'] = sec
     out['Indus.'] = ind
 
 def main():
-    """ xxx """
+    """
+    Selenium-based yahoo finance parser for "quotes"
+    Includes configurable range-bound randomized throttle between web hits
+    """
 
     random.seed()
 
