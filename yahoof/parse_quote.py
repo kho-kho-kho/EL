@@ -14,7 +14,7 @@ import pandas as pd
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 
-INPUT = 'AAPL,'
+INPUT = 'AMZN,'
 OUTPUT = 'output.csv'
 
 WAIT_MIN = 5
@@ -34,17 +34,17 @@ def _parse_stats(src, out):
     if match and match.group(1) and match.group(2):
         tb2 = match.group(2)
 
-        reg = r'<span.*?>Market Cap</span>.*?<span.*?>(.*?)</span>'
+        reg = r'<span.*?>Market Cap</span>.*?<td.*?>(.*?)</td>'
         mat = re.search(reg, tb2, re.S)
         if mat and mat.group(1) and mat.group(1) != YNA:
             cap = float(mat.group(1)[:-1]) * mc_units[mat.group(1)[-1:]]
 
-        reg = r'<span.*?>Beta.*?</span>.*?<span.*?>(.*?)</span>'
+        reg = r'<span.*?>Beta.*?</span>.*?<td.*?>(.*?)</td>'
         mat = re.search(reg, tb2, re.S)
         if mat and mat.group(1) and mat.group(1) != YNA:
             bet = mat.group(1)
 
-        reg = r'<span.*?>PE Ratio.*?</span>.*?<span.*?>(.*?)</span>'
+        reg = r'<span.*?>PE Ratio.*?</span>.*?<td.*?>(.*?)</td>'
         mat = re.search(reg, tb2, re.S)
         if mat and mat.group(1) and mat.group(1) != YNA:
             per = mat.group(1)
@@ -92,6 +92,8 @@ def main():
     """
     Selenium-based yahoo finance parser for "quotes"
     Includes configurable range-bound randomized throttle between web hits
+    If webdriver/browser version becomes mismatched:
+    https://chromedriver.chromium.org/downloads/version-selection
     """
 
     random.seed()
