@@ -4,3 +4,10 @@
 *.ini
 *.xml
 *.csv
+*.pyc
+
+__pycache__/
+instance/
+venv/
+
+temp.*
