@@ -23,15 +23,10 @@ def create_app(test_config=None):
     except OSError:
         pass
 
-    @app.route('/dapi/<type>/json/<word>')
-    def dapiGet(type, word):
-        if type == 'collegiate':
-            key = os.environ['DAPI_COLLEGIATE'] # os.getenv(k, default) ??
-        else:
-            key = os.environ['DAPI_THESAURUS']
+    from . import db
+    db.init_app(app)
 
-        pre = os.environ['DAPI_REFERENCES']
-        url = f'{pre}{type}/json/{word}?key={key}'
-        return url
+    from . import cache
+    app.register_blueprint(cache.bp)
 
     return app
