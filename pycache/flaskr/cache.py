@@ -1,3 +1,4 @@
+import json
 import os
 import requests
 
@@ -28,13 +29,15 @@ def dapi_get(word):
         url = f'{pre}/collegiate/json/{word}'
 
         # TODO check for multiple results
-        json = requests.get(url, params = { 'key': key }).json()
+        r = requests.get(url, params = { 'key': key })
+        result = { 'def': r.content }
 
-        definitions = json[0]['shortdef']
-        if len(definitions) > 0:
-            result = { 'def': definitions[0] }
-        else:
-            result = { 'def': 'NA' }
+        # json = r.json()
+        # definitions = json[0]['shortdef']
+        # if len(definitions) > 0:
+        #     result = { 'def': definitions[0] }
+        # else:
+        #     result = { 'def': 'NA' }
 
         try:
             db.execute(
@@ -47,6 +50,7 @@ def dapi_get(word):
             return f'Word {word} already exists.'
 
     CACHE[word] = result['def']
+    current_app.logger.info(json.loads(result['def']))
     current_app.logger.info(
         'Persisted: %d; Cache: %d', persisted, len(CACHE)
     )
