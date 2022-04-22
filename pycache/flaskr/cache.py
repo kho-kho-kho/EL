@@ -1,21 +1,18 @@
 import os
 import requests
 
-from flask import (
-    Blueprint, flash, g, redirect, render_template, url_for
-)
-
+from flask import Blueprint, current_app
 from flaskr.db import get_db
 
-MEM_CACHE = {}
+CACHE = {} # TODO populate from db on startup ??
 
 bp = Blueprint('cache', __name__)
 
-@bp.route('/dapi/<type>/json/<word>')
-def dapiGet(type, word):
-    # does word exist in-memory?
-    if word in MEM_CACHE:
-        return MEM_CACHE[word]
+@bp.route('/dapi/json/<word>')
+def dapi_get(word):
+    # TODO how to handle plurals IE: word vs words etc ??
+    if word in CACHE:
+        return CACHE[word]
 
     # does word exist in persistent storage?
     db = get_db()
@@ -24,15 +21,14 @@ def dapiGet(type, word):
     ).fetchone()
 
     # fetch from web if word does not exist in cache or db
+    persisted = False
     if result is None:
-        if type == 'collegiate':
-            key = os.environ['DAPI_COLLEGIATE'] # os.getenv(k, default) ??
-        else:
-            key = os.environ['DAPI_THESAURUS']
-
+        key = os.environ['DAPI_COLLEGIATE'] # os.getenv(k, default) ??
         pre = os.environ['DAPI_REFERENCES']
-        url = f'{pre}{type}/json/{word}?key={key}'
-        json = requests.get(url).json() # TODO check for multiple results
+        url = f'{pre}/collegiate/json/{word}'
+
+        # TODO check for multiple results
+        json = requests.get(url, params = { 'key': key }).json()
 
         definitions = json[0]['shortdef']
         if len(definitions) > 0:
@@ -42,12 +38,17 @@ def dapiGet(type, word):
 
         try:
             db.execute(
-                'INSERT INTO dapi (word, definition) VALUES (?, ?)',
+                'INSERT INTO dapi (word, def) VALUES (?, ?)',
                 (word, result['def']),
             )
             db.commit()
+            persisted = True
         except db.IntegrityError:
             return f'Word {word} already exists.'
 
-    MEM_CACHE[word] = result['def']
-    return MEM_CACHE[word]
+    CACHE[word] = result['def']
+    current_app.logger.info(
+        'Persisted: %d; Cache: %d', persisted, len(CACHE)
+    )
+
+    return result['def']
