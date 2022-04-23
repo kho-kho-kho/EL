@@ -1,6 +1,8 @@
 import os
 
 from flask import Flask
+from flask_cors import CORS
+from flask_talisman import Talisman
 
 def create_app(test_config=None):
     # create and configure the app
@@ -29,5 +31,8 @@ def create_app(test_config=None):
     from . import cache
     app.before_first_request(cache.init_dapi)
     app.register_blueprint(cache.bp)
+
+    CORS(app, origins=['http://localhost:*'])
+    Talisman(app)
 
     return app
