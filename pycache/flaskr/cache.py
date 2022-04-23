@@ -5,13 +5,36 @@ import requests
 from flask import Blueprint, current_app
 from flaskr.db import get_db
 
-CACHE = {} # TODO populate from db on startup ??
+CACHE = {}
 
 bp = Blueprint('cache', __name__)
 
+def parse_blob(blob):
+    fls = [] # fl: 'functional label' per MW spec
+    parsed = json.loads(blob)
+    if type(parsed) == type([]) and len(parsed) > 0:
+        fls += [
+            d['fl'] + ': ' + ';\n'.join(d['shortdef'])
+            for d in parsed
+            if type(d) == type({}) and 'fl' in d and 'shortdef' in d
+        ]
+
+    # 0: list empty []
+    # 1: list of strings ["campanulate", "capitulate"] (absquatulate)
+    # 2: list of dicts [{ "meta": .. }, { "meta": .. }]
+
+    # TODO plurals ?? use (entry > meta > stems) for x-referencing
+
+    return json.dumps('\n\n'.join(fls))
+
+def init_dapi():
+    db = get_db()
+    for row in db.execute('SELECT * FROM dapi').fetchall():
+        CACHE[row['word']] = parse_blob(row['def'])
+    current_app.logger.info('Cache: %d', len(CACHE))
+
 @bp.route('/dapi/json/<word>')
-def dapi_get(word):
-    # TODO how to handle plurals IE: word vs words etc ??
+def get_dapi_word(word):
     if word in CACHE:
         return CACHE[word]
 
@@ -25,19 +48,9 @@ def dapi_get(word):
     persisted = False
     if result is None:
         key = os.environ['DAPI_COLLEGIATE'] # os.getenv(k, default) ??
-        pre = os.environ['DAPI_REFERENCES']
-        url = f'{pre}/collegiate/json/{word}'
-
-        # TODO check for multiple results
+        url = f"{os.environ['DAPI_REFERENCES']}/collegiate/json/{word}"
         r = requests.get(url, params = { 'key': key })
         result = { 'def': r.content }
-
-        # json = r.json()
-        # definitions = json[0]['shortdef']
-        # if len(definitions) > 0:
-        #     result = { 'def': definitions[0] }
-        # else:
-        #     result = { 'def': 'NA' }
 
         try:
             db.execute(
@@ -49,10 +62,8 @@ def dapi_get(word):
         except db.IntegrityError:
             return f'Word {word} already exists.'
 
-    CACHE[word] = result['def']
-    current_app.logger.info(json.loads(result['def']))
-    current_app.logger.info(
-        'Persisted: %d; Cache: %d', persisted, len(CACHE)
-    )
+    CACHE[word] = parse_blob(result['def'])
 
-    return result['def']
+    current_app.logger.info('P%d; Cache: %d', persisted, len(CACHE))
+
+    return CACHE[word]

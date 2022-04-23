@@ -27,6 +27,7 @@ def create_app(test_config=None):
     db.init_app(app)
 
     from . import cache
+    app.before_first_request(cache.init_dapi)
     app.register_blueprint(cache.bp)
 
     return app
