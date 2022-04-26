@@ -8,7 +8,7 @@ def create_app(test_config=None):
     # create and configure the app
     app = Flask(__name__, instance_relative_config=True)
     app.config.from_mapping(
-        SECRET_KEY='dev', # TODO randomize key
+        # TODO need to rename flaskr to something else ..
         DATABASE=os.path.join(app.instance_path, 'flaskr.sqlite'),
     )
 
@@ -25,14 +25,16 @@ def create_app(test_config=None):
     except OSError:
         pass
 
+    # implement http security headers via external libs
+    CORS(app, origins=['http://localhost:*'])
+    Talisman(app)
+
     from . import db
     db.init_app(app)
 
     from . import cache
-    app.before_first_request(cache.init_dapi)
     app.register_blueprint(cache.bp)
 
-    CORS(app, origins=['http://localhost:*'])
-    Talisman(app)
+    app.logger.info('SECRET_KEY = %s', app.secret_key)
 
     return app
