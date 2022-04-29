@@ -25,8 +25,8 @@ def create_app(test_config=None):
     CORS(app, origins=['http://localhost:*'])
     Talisman(app)
 
-    from . import cache
-    app.register_blueprint(cache.bp)
+    from . import passthrough
+    app.register_blueprint(passthrough.bp)
 
     app.logger.info('SECRET_KEY = %s', app.secret_key)
 

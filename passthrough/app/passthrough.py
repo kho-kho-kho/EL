@@ -10,7 +10,7 @@ from time import sleep
 CACHE = {}
 LOCKE = Lock()
 
-bp = Blueprint('cache', __name__, url_prefix='/dapi')
+bp = Blueprint('passthrough', __name__, url_prefix='/dapi')
 
 def parse_blob(blob):
     fls = [] # fl: 'functional label' per dapi spec
