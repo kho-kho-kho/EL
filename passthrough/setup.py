@@ -8,5 +8,8 @@ setup(
     zip_safe=False,
     install_requires=[
         'flask',
+        'requests',
+        'flask-talisman',
+        'flask-cors',
     ],
 )
