@@ -46,7 +46,7 @@ def dapi_word(word):
     # IE: misspelling collegiate > 200 with text = "invalid reference name"
     # IE: misspelling json > 404 with text = some html page
     if r.status_code != requests.codes.ok or len(r.text) < 50:
-        current_app.logger.warn('%s;%d;%s', word, r.status_code, r.text)
+        current_app.logger.warning('%s;%d;%s', word, r.status_code, r.text)
         abort(500, f"Issue fetching '{escape(word)}'")
 
     parsed = parse_blob(r.content)
