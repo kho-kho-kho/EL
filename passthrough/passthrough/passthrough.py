@@ -2,7 +2,7 @@ import os
 import requests
 
 from flask import abort, Blueprint, current_app, json, jsonify
-from markupsafe import escape
+from json import JSONDecodeError
 from threading import Lock
 
 from time import sleep
@@ -12,11 +12,16 @@ LOCKE = Lock()
 
 bp = Blueprint('passthrough', __name__, url_prefix='/dapi')
 
+def dapi_key():
+    return os.getenv('DAPI_COLLEGIATE')
+
+def dapi_path(type = 'collegiate'):
+    return f"{os.getenv('DAPI_REFERENCES')}/{type}/json"
+
 def parse_blob(blob):
     fls = [] # fl: 'functional label' per dapi spec
     parsed = json.loads(blob)
 
-    # 0: list empty []
     # 1: list of strings ["cam..", "cap.."] (absquatulate)
     # 2: list of dicts [{ "meta": .. }, { "meta": .. }]
 
@@ -39,23 +44,36 @@ def dapi_word(word):
         if word in CACHE:
             return jsonify(CACHE[word])
 
-    # below 'xcollegiate' > 200, but 'xjson' > 404
-    url = f"{os.environ['DAPI_REFERENCES']}/collegiate/json/{word}"
-    r = requests.get(url, params = { 'key': os.environ['DAPI_COLLEGIATE'] })
+    r = requests.get(f"{dapi_path()}/{word}", params = { 'key': dapi_key() })
+    if r.status_code == 404:
+        abort(503, 'Possibly malformed request')
+    if r.content == b'[]':
+        abort(404, 'Cannot find definition')
 
-    # IE: misspelling collegiate > 200 with text = "invalid reference name"
-    # IE: misspelling json > 404 with text = some html page
-    if r.status_code != requests.codes.ok or len(r.text) < 50:
-        current_app.logger.warning('%s;%d;%s', word, r.status_code, r.text)
-        abort(500, f"Issue fetching '{escape(word)}'")
+    # misspell collegiate > 200 with text = "invalid reference name"
+    # if r.status_code != requests.codes.ok or len(r.text) < 50:
+    #     abort(500, f"Issue fetching '{escape(word)}'")
 
-    parsed = parse_blob(r.content)
+    try:
+        parsed = parse_blob(r.content)
+    except JSONDecodeError:
+        if b'Invalid API key' in r.content:
+            abort(503, 'Invalid API key')
+        abort(500, 'Blob parsing failed')
+
     with LOCKE:
         CACHE[word] = parsed
         count = len(CACHE)
 
     current_app.logger.info('Cache(%d)', count)
     return jsonify(parsed)
+
+@bp.route('/ping')
+def dapi_ping():
+    r = requests.get(dapi_path() + '/')
+    if r.status_code == 200:
+        return jsonify('pong')
+    abort(503, 'Service unavailable')
 
 @bp.route('/a')
 def loop_a():
