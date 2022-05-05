@@ -6,8 +6,15 @@ from passthrough.passthrough import (dapi_key, dapi_path,
 
 PATH_WORD = '/dapi/json/antimacassar'
 PATH_WORD_DEF = b'noun: a cover to protect the back or arms of furniture'
-PATH_WORD_BAD = '/dapi/json/zzzzzzzzzz'
 PATH_WORD_XML = '/dapi/xml/antimacassar'
+PATH_WORD_BAD = '/dapi/json/zzzzzzzzzz'
+PATH_WORD_UNAB0 = '/dapi/json/absquatulate'
+PATH_WORD_UNAB1 = '/dapi/json/nesh'
+PATH_WORD_UNAB_RET = b'"\\"\\""\n'
+PATH_WORD_MULTI = '/dapi/json/stole'
+PATH_WORD_MULTI_RET = b'\\\\n\\\\n'
+PATH_WORD_MULTI_DEF0 = b'noun: a long loose garment'
+PATH_WORD_MULTI_DEF1 = b'verb: to take the property of another'
 PATH_PING = '/dapi/ping'
 
 def b_lit(str, enc = 'utf-8'):
@@ -68,6 +75,20 @@ def test_word_imaginary(client):
     assert r.status_code == 404
     assert b_lit(AB404_NO_DEFINITION) in r.data
 
+def test_word_unabridged0(client):
+    r = client.get(PATH_WORD_UNAB0, follow_redirects=True)
+    assert PATH_WORD_UNAB_RET == r.data
+
+def test_word_unabridged1(client):
+    r = client.get(PATH_WORD_UNAB1, follow_redirects=True)
+    assert PATH_WORD_UNAB_RET == r.data
+
 def test_word_simple(client):
     r = client.get(PATH_WORD, follow_redirects=True)
     assert PATH_WORD_DEF in r.data
+
+def test_word_multi(client):
+    r = client.get(PATH_WORD_MULTI, follow_redirects=True)
+    assert PATH_WORD_MULTI_RET in r.data
+    assert PATH_WORD_MULTI_DEF0 in r.data
+    assert PATH_WORD_MULTI_DEF1 in r.data
