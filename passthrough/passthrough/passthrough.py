@@ -5,7 +5,12 @@ from flask import abort, Blueprint, current_app, json, jsonify
 from json import JSONDecodeError
 from threading import Lock
 
-from time import sleep
+AB404_NO_DEFINITION = 'Cannot find definition'
+AB500_ERR_PARSING = 'Blob parsing failed'
+AB500_NON_200 = 'Non-200 response received'
+AB503_SERVICE_DOWN = 'Service unavailable'
+AB503_BAD_REQUEST = 'Possibly malformed request'
+AB503_BAD_API_KEY = 'Invalid API key'
 
 CACHE = {}
 LOCKE = Lock()
@@ -16,14 +21,13 @@ def dapi_key():
     return os.getenv('DAPI_COLLEGIATE')
 
 def dapi_path(type = 'collegiate'):
+    # misspell collegiate > 200 with text = "invalid reference name"
+
     return f"{os.getenv('DAPI_REFERENCES')}/{type}/json"
 
 def parse_blob(blob):
     fls = [] # fl: 'functional label' per dapi spec
     parsed = json.loads(blob)
-
-    # 1: list of strings ["cam..", "cap.."] (absquatulate)
-    # 2: list of dicts [{ "meta": .. }, { "meta": .. }]
 
     if type(parsed) == type([]) and len(parsed) > 0:
         fls += [
@@ -36,6 +40,11 @@ def parse_blob(blob):
 
     return json.dumps('\n\n'.join(fls))
 
+def log_request(r, length = 50):
+    current_app.logger.warning(
+        '%s;%d;%s', r.url, r.status_code, r.content[0:length]
+    )
+
 @bp.route('/json/<word>')
 def dapi_word(word):
     word = word.lower()
@@ -44,22 +53,27 @@ def dapi_word(word):
         if word in CACHE:
             return jsonify(CACHE[word])
 
-    r = requests.get(f"{dapi_path()}/{word}", params = { 'key': dapi_key() })
-    if r.status_code == 404:
-        abort(503, 'Possibly malformed request')
-    if r.content == b'[]':
-        abort(404, 'Cannot find definition')
+    try:
+        p = { 'key': dapi_key() }
+        r = requests.get(f"{dapi_path()}/{word}", params = p)
+    except requests.exceptions.RequestException as err:
+        current_app.logger.warning('word;%s', err)
+        abort(503, AB503_SERVICE_DOWN)
 
-    # misspell collegiate > 200 with text = "invalid reference name"
-    # if r.status_code != requests.codes.ok or len(r.text) < 50:
-    #     abort(500, f"Issue fetching '{escape(word)}'")
+    if r.status_code != requests.codes.ok or len(r.text) < 50:
+        log_request(r)
+    if r.status_code == 404:
+        abort(503, AB503_BAD_REQUEST)
+    if r.content == b'[]':
+        abort(404, AB404_NO_DEFINITION)
 
     try:
         parsed = parse_blob(r.content)
     except JSONDecodeError:
+        log_request(r)
         if b'Invalid API key' in r.content:
-            abort(503, 'Invalid API key')
-        abort(500, 'Blob parsing failed')
+            abort(503, AB503_BAD_API_KEY)
+        abort(500, AB500_ERR_PARSING)
 
     with LOCKE:
         CACHE[word] = parsed
@@ -70,49 +84,14 @@ def dapi_word(word):
 
 @bp.route('/ping')
 def dapi_ping():
-    r = requests.get(dapi_path() + '/')
+    try:
+        r = requests.get(dapi_path() + '/')
+    except requests.exceptions.RequestException as err:
+        current_app.logger.warning('ping;%s', err)
+        abort(503, AB503_SERVICE_DOWN)
+
     if r.status_code == 200:
-        return jsonify('pong')
-    abort(503, 'Service unavailable')
+        return 'pong'
 
-@bp.route('/a')
-def loop_a():
-    i = 0
-    while True:
-        current_app.logger.info('a %d', i)
-        i += 1
-        # with LOCKE:
-        CACHE['word'] = 'parsed0'
-        sleep(0.01)
-        current_app.logger.info('%s', CACHE['word'])
-        sleep(0.01)
-        CACHE['word'] = 'parsed1'
-        sleep(0.01)
-        current_app.logger.info('%s', CACHE['word'])
-        sleep(0.01)
-        CACHE['word'] = 'parsed2'
-        sleep(0.01)
-        current_app.logger.info('%s', CACHE['word'])
-        sleep(0.01)
-    return 'OK'
-
-@bp.route('/b')
-def loop_b():
-    i = 0
-    while True:
-        current_app.logger.info('b %d', i)
-        i += 1
-        # with LOCKE:
-        CACHE['word'] = 'parsed3'
-        sleep(0.01)
-        current_app.logger.info('%s', CACHE['word'])
-        sleep(0.01)
-        CACHE['word'] = 'parsed4'
-        sleep(0.01)
-        current_app.logger.info('%s', CACHE['word'])
-        sleep(0.01)
-        CACHE['word'] = 'parsed5'
-        sleep(0.01)
-        current_app.logger.info('%s', CACHE['word'])
-        sleep(0.01)
-    return 'OK'
+    log_request(r)
+    abort(500, AB500_NON_200)
