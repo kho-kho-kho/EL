@@ -1,7 +1,8 @@
 from os import environ as env
 from passthrough.passthrough import (dapi_key, dapi_path,
     AB404_NO_DEFINITION, AB500_ERR_PARSING, AB500_NON_200,
-    AB503_SERVICE_DOWN, AB503_BAD_REQUEST, AB503_BAD_API_KEY
+    AB503_SERVICE_DOWN, AB503_BAD_REQUEST, AB503_BAD_API_KEY,
+    PING_PONG
 )
 
 PATH_WORD = '/dapi/json/antimacassar'
@@ -29,7 +30,7 @@ def test_environ():
 def test_ping(client):
     r = client.get(PATH_PING, follow_redirects=True)
     assert r.status_code == 200
-    assert b'pong' in r.data
+    assert b_lit(PING_PONG) in r.data
 
 def test_bad_ping_req(client, monkeypatch):
     ref = env['DAPI_REFERENCES'].replace('api', 'apiz')
@@ -68,7 +69,6 @@ def test_bad_key(client, monkeypatch):
 def test_bad_format(client):
     r = client.get(PATH_WORD_XML, follow_redirects=True)
     assert r.status_code == 404
-    assert b'requested URL was not found on the server' in r.data
 
 def test_word_imaginary(client):
     r = client.get(PATH_WORD_BAD, follow_redirects=True)
@@ -84,8 +84,10 @@ def test_word_unabridged1(client):
     assert PATH_WORD_UNAB_RET == r.data
 
 def test_word_simple(client):
-    r = client.get(PATH_WORD, follow_redirects=True)
-    assert PATH_WORD_DEF in r.data
+    r1 = client.get(PATH_WORD, follow_redirects=True)
+    r2 = client.get(PATH_WORD, follow_redirects=True)
+    assert PATH_WORD_DEF in r1.data
+    assert r2.data in r1.data
 
 def test_word_multi(client):
     r = client.get(PATH_WORD_MULTI, follow_redirects=True)

@@ -5,12 +5,18 @@ from flask import abort, Blueprint, current_app, json, jsonify
 from json import JSONDecodeError
 from threading import Lock
 
-AB404_NO_DEFINITION = 'Cannot find definition'
-AB500_ERR_PARSING = 'Blob parsing failed'
-AB500_NON_200 = 'Non-200 response received'
-AB503_SERVICE_DOWN = 'Service unavailable'
-AB503_BAD_REQUEST = 'Possibly malformed request'
-AB503_BAD_API_KEY = 'Invalid API key'
+AB404_NO_DEFINITION = 'Cannot find definition for requested word'
+AB500_ERR_PARSING = 'Failed to parse contents of external response'
+AB500_NON_200 = 'Received an external response code other than 200'
+AB503_SERVICE_DOWN = 'Service failed while making external request'
+AB503_BAD_REQUEST = 'External request possibly malformed'
+AB503_BAD_API_KEY = 'External request provided an invalid key'
+
+CONTENT_MIN_LEN = 100
+CONTENT_EMPTY = b'[]'
+CONTENT_BAD_KEY = b'Invalid API key. Not subscribed for this reference.'
+
+PING_PONG = 'pong'
 
 CACHE = {}
 LOCKE = Lock()
@@ -21,7 +27,7 @@ def dapi_key():
     return os.getenv('DAPI_COLLEGIATE')
 
 def dapi_path(type = 'collegiate'):
-    # misspell collegiate > 200 with text = "invalid reference name"
+    # misspell collegiate > 200 > text = 'invalid reference name'
 
     return f"{os.getenv('DAPI_REFERENCES')}/{type}/json"
 
@@ -60,19 +66,19 @@ def dapi_word(word):
         current_app.logger.warning('word;%s', err)
         abort(503, AB503_SERVICE_DOWN)
 
-    if r.status_code != requests.codes.ok or len(r.text) < 50:
+    if r.status_code != requests.codes.ok or len(r.content) < CONTENT_MIN_LEN:
         log_request(r)
     if r.status_code == 404:
         abort(503, AB503_BAD_REQUEST)
-    if r.content == b'[]':
+    if r.content == CONTENT_EMPTY:
         abort(404, AB404_NO_DEFINITION)
+    if r.content == CONTENT_BAD_KEY:
+        abort(503, AB503_BAD_API_KEY)
 
     try:
         parsed = parse_blob(r.content)
     except JSONDecodeError:
         log_request(r)
-        if b'Invalid API key' in r.content:
-            abort(503, AB503_BAD_API_KEY)
         abort(500, AB500_ERR_PARSING)
 
     with LOCKE:
@@ -91,7 +97,7 @@ def dapi_ping():
         abort(503, AB503_SERVICE_DOWN)
 
     if r.status_code == 200:
-        return 'pong'
+        return PING_PONG
 
     log_request(r)
     abort(500, AB500_NON_200)

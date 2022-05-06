@@ -5,6 +5,7 @@
 *.xml
 *.csv
 *.pyc
+*.coverage
 
 __pycache__/
 *.egg-info/
