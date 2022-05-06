@@ -31,6 +31,4 @@ def create_app(test_config=None):
     from . import passthrough
     app.register_blueprint(passthrough.bp)
 
-    app.logger.info('SECRET_KEY = %s', app.secret_key)
-
     return app
