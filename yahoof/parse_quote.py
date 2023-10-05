@@ -99,8 +99,8 @@ def main():
     random.seed()
 
     options = Options()
+    options.add_argument('--headless')
     options.add_argument("--incognito")
-    options.headless = True
     driver = webdriver.Chrome(options=options)
 
     rows = []
