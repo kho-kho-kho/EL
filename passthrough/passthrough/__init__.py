@@ -22,8 +22,8 @@ def create_app(test_config=None):
         pass
 
     # implement http security headers via external libs
-    CORS(app, origins=['http://localhost:*'])
-    Talisman(app)
+    CORS(app, origins=['http://localhost:*']) # add some pytests
+    Talisman(app) # forces https redirect in production (waitress-serve)
 
     from . import db
     db.init_app(app)
